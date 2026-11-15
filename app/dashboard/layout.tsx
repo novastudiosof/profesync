@@ -17,8 +17,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
     ? [{ href: "/superadmin", label: "Docentes", icon: "superadmin" }]
     : [
         { href: "/dashboard", label: "Inicio", icon: "inicio" },
-        { href: "/dashboard/instituciones", label: "Instituciones y años", icon: "instituciones" },
-        { href: "/dashboard/cursos", label: "Cursos y materias", icon: "cursos" },
         { href: "/dashboard/notas", label: "Notas", icon: "notas" },
         { href: "/dashboard/asistencia", label: "Asistencia", icon: "asistencia" },
         { href: "/dashboard/estudiantes", label: "Estudiantes", icon: "estudiantes" },

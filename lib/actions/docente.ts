@@ -230,7 +230,7 @@ export async function createCourse(_prev: Result, formData: FormData): Promise<R
       }),
     };
   }
-  revalidatePath("/dashboard/cursos");
+  revalidatePath("/dashboard", "layout");
   return { success: "Curso creado" };
 }
 
@@ -244,7 +244,7 @@ export async function deleteCourse(courseId: string): Promise<{ error?: string }
   if ((count ?? 0) > 0) return { error: "El curso tiene estudiantes matriculados; no se puede eliminar." };
   const { error } = await supabase.from("courses").update({ deleted_at: new Date().toISOString() }).eq("id", courseId);
   if (error) return { error: friendlyDbError(error, "deleteCourse", "No se pudo eliminar el curso") };
-  revalidatePath("/dashboard/cursos");
+  revalidatePath("/dashboard", "layout");
   return {};
 }
 
@@ -268,7 +268,7 @@ export async function createSubject(courseId: string, _prev: Result, formData: F
       }),
     };
   }
-  revalidatePath("/dashboard/cursos", "layout");
+  revalidatePath("/dashboard", "layout");
   return { success: "Materia agregada" };
 }
 
@@ -280,7 +280,7 @@ export async function deleteSubject(subjectId: string): Promise<{ error?: string
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", subjectId);
   if (error) return { error: friendlyDbError(error, "deleteSubject", "No se pudo eliminar la materia") };
-  revalidatePath("/dashboard/cursos", "layout");
+  revalidatePath("/dashboard", "layout");
   return {};
 }
 
@@ -352,7 +352,7 @@ export async function createStudent(_prev: Result, formData: FormData): Promise<
       academic_year_id: yearId,
     });
     if (enrollError) {
-      revalidatePath("/dashboard/estudiantes");
+      revalidatePath("/dashboard", "layout");
       return {
         error:
           "El estudiante se creó, pero no se pudo matricular: " +
@@ -361,7 +361,7 @@ export async function createStudent(_prev: Result, formData: FormData): Promise<
     }
   }
 
-  revalidatePath("/dashboard/estudiantes");
+  revalidatePath("/dashboard", "layout");
   return { success: "Estudiante registrado" };
 }
 
@@ -396,7 +396,7 @@ export async function updateStudent(studentId: string, _prev: Result, formData: 
   }
   if (photo.path) await removePhoto(supabase, current?.photo_url);
 
-  revalidatePath("/dashboard/estudiantes", "layout");
+  revalidatePath("/dashboard", "layout");
   return { success: "Datos guardados" };
 }
 
@@ -485,7 +485,7 @@ export async function enrollStudent(studentId: string, _prev: Result, formData: 
     };
   }
   revalidatePath(`/dashboard/estudiantes/${studentId}`);
-  revalidatePath("/dashboard/estudiantes");
+  revalidatePath("/dashboard", "layout");
   return { success: "Estudiante matriculado" };
 }
 
@@ -531,8 +531,8 @@ export async function withdrawEnrollment(
 
   const report = await loadWithdrawalReport(enrollmentId, profile.full_name);
   revalidatePath(`/dashboard/estudiantes/${studentId}`);
-  revalidatePath("/dashboard/estudiantes");
-  revalidatePath("/dashboard/cursos", "layout");
+  revalidatePath("/dashboard", "layout");
+  revalidatePath("/dashboard", "layout");
   return report ? { report } : {};
 }
 
@@ -549,7 +549,7 @@ export async function saveWithdrawalReportPath(
   const { error } = await supabase.from("enrollments").update({ withdrawn_report_path: path }).eq("id", enrollmentId);
   if (error) return { error: "No se pudo guardar el informe" };
   revalidatePath(`/dashboard/estudiantes/${studentId}`);
-  revalidatePath("/dashboard/cursos", "layout");
+  revalidatePath("/dashboard", "layout");
   return {};
 }
 

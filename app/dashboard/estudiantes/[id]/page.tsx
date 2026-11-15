@@ -12,11 +12,15 @@ import { createClient } from "@/lib/supabase/server";
 import { addGuardian, deleteGuardian, enrollStudent, updateStudent } from "@/lib/actions/docente";
 import { addObservation, deleteObservation, toggleObservationResolved } from "@/lib/actions/notas";
 import { WithdrawForm, WithdrawalReportButton } from "@/components/docente/withdraw-form";
-import { WITHDRAWAL_REASONS } from "@/lib/retiro-data";
+import { BulletinRow } from "@/components/docente/bulletin-row";
+import { ReportButtons } from "@/components/docente/report-buttons";
+import { loadCourseBulletins, type BulletinStudent, type CourseBulletins } from "@/lib/boletin-data";
+import { loadWithdrawalReport, WITHDRAWAL_REASONS } from "@/lib/retiro-data";
 import type {
   AcademicYear,
   Attendance,
   AttendanceStatus,
+  BulletinSend,
   Course,
   CourseSubject,
   Enrollment,
@@ -63,7 +67,7 @@ export default async function StudentPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ subject?: string; status?: string }>;
+  searchParams: Promise<{ subject?: string; status?: string; enr?: string; period?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -139,14 +143,211 @@ export default async function StudentPage({
     return yb - ya;
   });
 
+  // ---- Notas y boletín de la matrícula elegida (por defecto, la del año abierto) ----
+  const selectedEnrollment =
+    sortedEnrollments.find((e) => e.id === sp.enr) ??
+    sortedEnrollments.find(
+      (e) => e.status !== "retirado" && years.find((y) => y.id === e.academic_year_id)?.status === "abierto"
+    ) ??
+    sortedEnrollments[0] ??
+    null;
+  const notasReport = selectedEnrollment ? await loadWithdrawalReport(selectedEnrollment.id, profile.full_name) : null;
+
+  let bulletin = null as CourseBulletins | null;
+  let bulletinStudent = undefined as BulletinStudent | undefined;
+  let bulletinSentAt: string | null = null;
+  if (selectedEnrollment && selectedEnrollment.status !== "retirado") {
+    const { data: periodRows } = await supabase
+      .from("periods")
+      .select("number, status")
+      .eq("academic_year_id", selectedEnrollment.academic_year_id)
+      .order("number");
+    const bulletinPeriod: number | null =
+      sp.period === "final"
+        ? null
+        : Number(sp.period) > 0
+          ? Number(sp.period)
+          : (periodRows?.find((p) => p.status === "abierto")?.number ?? periodRows?.at(-1)?.number ?? 1);
+    bulletin = await loadCourseBulletins(selectedEnrollment.course_id, bulletinPeriod);
+    bulletinStudent = bulletin?.students.find((s) => s.enrollmentId === selectedEnrollment.id);
+    if (bulletinStudent) {
+      const { data: sendData } = await supabase
+        .from("bulletin_sends")
+        .select("*")
+        .eq("enrollment_id", selectedEnrollment.id)
+        .order("created_at", { ascending: false });
+      const send = ((sendData ?? []) as BulletinSend[]).find(
+        (x) => x.period_number === (bulletin?.periodNumber ?? null) && x.channel !== "descarga"
+      );
+      bulletinSentAt = send ? new Date(send.created_at).toLocaleDateString("es-CO", { day: "numeric", month: "short" }) : null;
+    }
+  }
+  const selectedCourse = selectedEnrollment ? courses.find((c) => c.id === selectedEnrollment.course_id) : undefined;
+  const enrollmentLabel = (e: Enrollment) => {
+    const c = courses.find((course) => course.id === e.course_id);
+    const label = c ? c.grade + " " + c.section : "Curso";
+    return label + " · " + (years.find((y) => y.id === e.academic_year_id)?.year ?? "");
+  };
+
   return (
-    <div className="flex max-w-3xl flex-col gap-6">
-      <Link href="/dashboard/estudiantes" className="text-sm text-brand-muted hover:underline">
-        ← Estudiantes
-      </Link>
+    <div className="flex max-w-4xl flex-col gap-6">
+      {sp.enr && selectedCourse ? (
+        <Link href={"/dashboard/cursos/" + selectedCourse.id} className="text-sm text-brand-muted hover:underline">
+          ← {selectedCourse.grade} {selectedCourse.section}
+        </Link>
+      ) : (
+        <Link href="/dashboard/estudiantes" className="text-sm text-brand-muted hover:underline">
+          ← Estudiantes
+        </Link>
+      )}
       <h1 className="text-2xl font-semibold text-brand-ink">
         {student.first_name} {student.last_name}
       </h1>
+
+      {selectedEnrollment && notasReport && (
+        <Card id="notas">
+          <CardHeader>
+            <CardTitle>Notas y boletín</CardTitle>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              {sortedEnrollments.map((e) => (
+                <Link
+                  key={e.id}
+                  href={"/dashboard/estudiantes/" + id + "?enr=" + e.id}
+                  className={
+                    "rounded-full border px-3 py-1 " +
+                    (e.id === selectedEnrollment.id
+                      ? "border-brand bg-brand text-brand-ink"
+                      : "border-brand-border text-brand-muted hover:bg-black/5")
+                  }
+                >
+                  {enrollmentLabel(e)}
+                  {e.status === "retirado" ? " (retirado)" : ""}
+                </Link>
+              ))}
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <ReportButtons
+              reports={[
+                { label: "Notas", tipo: "notas-estudiante", params: { enrollment: selectedEnrollment.id } },
+                { label: "Asistencia", tipo: "asistencia-estudiante", params: { enrollment: selectedEnrollment.id } },
+              ]}
+            />
+            {notasReport.subjects.length === 0 ? (
+              <p className="text-sm text-brand-muted">Este curso aún no tiene materias.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-[var(--radius-brand-md)] border border-brand-border bg-white">
+                <table className="w-full min-w-[560px] text-sm">
+                  <thead>
+                    <tr className="border-b border-brand-border bg-black/5 text-left">
+                      <th className="px-3 py-2 font-medium">Materia</th>
+                      {notasReport.subjects[0].periods.map((p) => (
+                        <th key={p.label} className="px-3 py-2 text-center font-medium">
+                          {p.label.replace("Periodo ", "P")}
+                        </th>
+                      ))}
+                      <th className="px-3 py-2 text-center font-medium">Definitiva</th>
+                      <th className="px-3 py-2 text-center font-medium">Desempeño</th>
+                      <th className="px-3 py-2 text-center font-medium">Faltas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {notasReport.subjects.map((s) => (
+                      <tr key={s.name} className="border-b border-brand-border last:border-0">
+                        <td className="px-3 py-2 font-medium text-brand-ink">{s.name}</td>
+                        {s.periods.map((p) => (
+                          <td
+                            key={p.label}
+                            className={
+                              "px-3 py-2 text-center " + (p.grade !== null && p.grade < notasReport.pass ? "text-brand-danger" : "")
+                            }
+                          >
+                            {p.grade ?? "—"}
+                          </td>
+                        ))}
+                        <td
+                          className={
+                            "px-3 py-2 text-center font-semibold " +
+                            (s.final !== null && s.final < notasReport.pass ? "text-brand-danger" : "")
+                          }
+                        >
+                          {s.final ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-center">{s.performance}</td>
+                        <td className="px-3 py-2 text-center">
+                          <a href="#asistencia" className="hover:underline">
+                            {s.absences}
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {selectedEnrollment.status === "retirado" ? (
+              <p className="text-sm text-brand-muted">
+                Estudiante retirado: usa el «Informe de retiro» de su matrícula (más abajo) para ver sus notas hasta esa fecha.
+              </p>
+            ) : (
+              bulletin &&
+              bulletinStudent && (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-wrap items-end justify-between gap-2">
+                    <p className="text-sm font-medium text-brand-ink">Boletín</p>
+                    <form className="flex items-end gap-2">
+                      <input type="hidden" name="enr" value={selectedEnrollment.id} />
+                      <select
+                        name="period"
+                        defaultValue={bulletin.periodNumber === null ? "final" : String(bulletin.periodNumber)}
+                        className={selectClasses + " w-48"}
+                        aria-label="Periodo del boletín"
+                      >
+                        {bulletin.periods.map((p) => (
+                          <option key={p.id} value={p.number}>
+                            {p.name}
+                          </option>
+                        ))}
+                        <option value="final">Nota final del año</option>
+                      </select>
+                      <button className="h-10 rounded-[var(--radius-brand-sm)] border border-brand-border px-4 text-sm hover:bg-black/5">
+                        Ver
+                      </button>
+                    </form>
+                  </div>
+                  <ul>
+                    <BulletinRow
+                      key={selectedEnrollment.id + ":" + (bulletin.periodNumber ?? "final")}
+                      enrollmentId={selectedEnrollment.id}
+                      periodNumber={bulletin.periodNumber}
+                      listName={bulletinStudent.name}
+                      student={{
+                        name: bulletinStudent.displayName,
+                        document: bulletinStudent.document,
+                        rows: bulletinStudent.rows,
+                        average: bulletinStudent.average,
+                      }}
+                      photoUrl={photoUrl}
+                      guardians={bulletinStudent.guardians}
+                      sentAt={bulletinSentAt}
+                      readOnly={!editable}
+                      header={{
+                        institution: bulletin.institution,
+                        courseLabel: bulletin.courseLabel,
+                        year: bulletin.year,
+                        periodLabel: bulletin.periodLabel,
+                        teacherName: profile.full_name,
+                        pass: bulletin.scale.pass,
+                      }}
+                    />
+                  </ul>
+                </div>
+              )
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

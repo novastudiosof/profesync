@@ -118,7 +118,10 @@ export function Sidebar({ fullName, roleLabel, items, photoUrl }: SidebarProps) 
           const Icon = ICONS[item.icon];
           const active =
             item.href === "/dashboard"
-              ? pathname === "/dashboard"
+              ? pathname === "/dashboard" ||
+                pathname.startsWith("/dashboard/instituciones") ||
+                pathname.startsWith("/dashboard/cursos") ||
+                pathname.startsWith("/dashboard/cierre")
               : pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link
@@ -168,7 +171,10 @@ export function Sidebar({ fullName, roleLabel, items, photoUrl }: SidebarProps) 
         </div>
       </div>
 
-      <aside className="hidden w-64 shrink-0 md:block">{content}</aside>
+      {/* Fijo: el nombre y "Cerrar sesión" siempre quedan a la vista aunque la página sea larga. */}
+      <aside className="hidden w-64 shrink-0 md:block">
+        <div className="sticky top-0 h-screen">{content}</div>
+      </aside>
 
       {open && (
         <div className="fixed inset-0 z-50 md:hidden">

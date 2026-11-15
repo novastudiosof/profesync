@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Download, Loader2, MessageCircle } from "lucide-react";
+import { Download, FileSpreadsheet, Loader2, MessageCircle } from "lucide-react";
 
 import { StudentAvatar } from "@/components/docente/student-avatar";
 import { recordBulletinSend } from "@/lib/actions/boletines";
@@ -128,6 +128,14 @@ export function BulletinRow({ enrollmentId, periodNumber, listName, student, pho
             {busy === "pdf" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             PDF
           </button>
+          <a
+            href={`/api/reportes/notas-estudiante?enrollment=${enrollmentId}&formato=xlsx`}
+            title="Notas de todas las materias y periodos en Excel"
+            className="inline-flex h-9 items-center gap-2 rounded-[var(--radius-brand-sm)] border border-brand-border px-3 text-sm font-medium hover:bg-black/5"
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            Excel
+          </a>
           <button
             onClick={sendWhatsapp}
             disabled={busy !== null}

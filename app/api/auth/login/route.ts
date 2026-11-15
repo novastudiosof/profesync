@@ -44,11 +44,13 @@ export async function POST(request: Request) {
   };
 
   const admin = createAdminClient();
-  const { data: profile } = await admin
+  // Mayúsculas y minúsculas valen igual: "Maria" y "maria" son el mismo usuario.
+  const { data: profiles } = await admin
     .from("profiles")
     .select("auth_email")
-    .eq("username", username)
-    .maybeSingle();
+    .ilike("username", username.replace(/[\\%_]/g, (ch) => `\\${ch}`))
+    .limit(1);
+  const profile = profiles?.[0];
   if (!profile) return fail();
 
   const supabase = await createClient();

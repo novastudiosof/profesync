@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/confirm-button";
 import { CloseYearWizard } from "@/components/docente/close-year-wizard";
+import { ReportButtons } from "@/components/docente/report-buttons";
 import { StudentAvatar } from "@/components/docente/student-avatar";
 import { isPlanActive, requireRole } from "@/lib/auth";
 import { DEFAULT_FAIL_LIMIT, loadClosingData } from "@/lib/cierre-data";
@@ -37,8 +38,8 @@ export default async function CierrePage({ params }: { params: Promise<{ yearId:
     return (
       <div className="flex flex-col gap-6">
         <div>
-          <Link href={`/dashboard/cursos?year=${year.id}`} className="text-sm text-brand-muted hover:underline">
-            ← Cursos
+          <Link href={`/dashboard/instituciones/${year.institution_id}?year=${year.year}`} className="text-sm text-brand-muted hover:underline">
+            ← {institution?.name ?? "Institución"}
           </Link>
           <h1 className="mt-1 text-2xl font-semibold text-brand-ink">Resultados del año {year.year}</h1>
           <p className="text-sm text-brand-muted">
@@ -50,6 +51,9 @@ export default async function CierrePage({ params }: { params: Promise<{ yearId:
             {approved} aprobados · {rows.length - approved} perdidos
             {data.withdrawnCount > 0 ? ` · ${data.withdrawnCount} retirados` : ""}
           </p>
+          <div className="mt-3">
+            <ReportButtons reports={[{ label: "Resultados del año", tipo: "resultados-anio", params: { year: year.id } }]} />
+          </div>
         </div>
 
         {courseLabels.map((courseLabel) => (
@@ -104,8 +108,8 @@ export default async function CierrePage({ params }: { params: Promise<{ yearId:
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link href={`/dashboard/cursos?year=${year.id}`} className="text-sm text-brand-muted hover:underline">
-          ← Cursos
+        <Link href={`/dashboard/instituciones/${year.institution_id}?year=${year.year}`} className="text-sm text-brand-muted hover:underline">
+          ← {institution?.name ?? "Institución"}
         </Link>
         <h1 className="mt-1 text-2xl font-semibold text-brand-ink">Cerrar el año {year.year}</h1>
         <p className="text-sm text-brand-muted">

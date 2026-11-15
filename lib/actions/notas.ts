@@ -85,7 +85,7 @@ export async function createActivity(
     activity_date: optional(formData, "date"),
   });
   if (error) return { error: friendlyDbError(error, "createActivity", "No se pudo crear la actividad") };
-  revalidatePath("/dashboard/notas");
+  revalidatePath("/dashboard", "layout");
   return { success: "Actividad creada" };
 }
 
@@ -97,7 +97,7 @@ export async function deleteActivity(activityId: string): Promise<{ error?: stri
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", activityId);
   if (error) return { error: friendlyDbError(error, "deleteActivity", "No se pudo eliminar la actividad") };
-  revalidatePath("/dashboard/notas");
+  revalidatePath("/dashboard", "layout");
   return {};
 }
 
@@ -320,7 +320,7 @@ export async function importStudents(_prev: Result, formData: FormData): Promise
     }
   }
 
-  revalidatePath("/dashboard/estudiantes");
+  revalidatePath("/dashboard", "layout");
   const summary = `${created} estudiante(s) importado(s).`;
   if (problems.length > 0) {
     return { error: `${summary} Con problemas: ${problems.slice(0, 5).join(" · ")}${problems.length > 5 ? " …" : ""}` };

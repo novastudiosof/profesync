@@ -6,6 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ActionForm, Field } from "@/components/action-form";
 import { ConfirmButton } from "@/components/confirm-button";
+import { AsistenciaPanel } from "@/components/docente/asistencia-panel";
+import { BoletinesPanel } from "@/components/docente/boletines-panel";
+import { NotasPanel } from "@/components/docente/notas-panel";
 import { StudentAvatar } from "@/components/docente/student-avatar";
 import { WithdrawalReportButton } from "@/components/docente/withdraw-form";
 import { isPlanActive, requireRole, signedMediaUrls } from "@/lib/auth";
@@ -14,7 +17,8 @@ import { createSubject, deleteSubject } from "@/lib/actions/docente";
 import { cn } from "@/lib/utils";
 import type { AcademicYear, Course, CourseSubject, Enrollment, Institution, Student } from "@/lib/supabase/types";
 
-type Tab = "estudiantes" | "materias" | "retirados";
+type Tab = "estudiantes" | "materias" | "notas" | "asistencia" | "boletines" | "retirados";
+const TABS: Tab[] = ["estudiantes", "materias", "notas", "asistencia", "boletines", "retirados"];
 
 const formatDay = (iso: string) =>
   new Date(`${iso}T00:00:00Z`).toLocaleDateString("es-CO", {
@@ -29,7 +33,7 @@ export default async function CursoPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; subject?: string; period?: string; vista?: string; date?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -74,22 +78,29 @@ export default async function CursoPage({
   const active = enrollments.filter((e) => e.status !== "retirado" && students.has(e.student_id)).sort(byName);
   const withdrawn = enrollments.filter((e) => e.status === "retirado" && students.has(e.student_id)).sort(byName);
 
-  const tab: Tab = sp.tab === "materias" ? "materias" : sp.tab === "retirados" ? "retirados" : "estudiantes";
+  const tab: Tab = TABS.find((t) => t === sp.tab) ?? "estudiantes";
   const canEdit = editable && year.status === "abierto";
-  const tabs: { key: Tab; label: string; count: number }[] = [
+  const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: "estudiantes", label: "Estudiantes", count: active.length },
     { key: "materias", label: "Materias", count: subjects.length },
+    { key: "notas", label: "Notas" },
+    { key: "asistencia", label: "Asistencia" },
+    { key: "boletines", label: "Boletines" },
     { key: "retirados", label: "Retirados", count: withdrawn.length },
   ];
+  const subjectOptions = subjects.map((s) => ({ id: s.id, label: s.name }));
+  const subjectId = subjects.find((s) => s.id === sp.subject)?.id ?? subjects[0]?.id;
+  const today = new Date().toISOString().slice(0, 10);
+  const attendanceDate = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : today;
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <Link
-          href={`/dashboard/cursos?year=${year.id}`}
+          href={`/dashboard/instituciones/${year.institution_id}?year=${year.year}`}
           className="text-sm text-brand-muted hover:underline"
         >
-          ← Cursos de {institution?.name ?? "la institución"} · {year.year}
+          ← {institution?.name ?? "Institución"} · cursos {year.year}
         </Link>
         <h1 className="mt-1 text-2xl font-semibold text-brand-ink">
           {course.grade} {course.section}
@@ -100,22 +111,62 @@ export default async function CursoPage({
         </p>
       </div>
 
-      <div className="flex gap-1 border-b border-brand-border">
+      <div className="flex gap-1 overflow-x-auto border-b border-brand-border">
         {tabs.map((t) => (
           <Link
             key={t.key}
             href={`/dashboard/cursos/${id}?tab=${t.key}`}
             className={cn(
-              "-mb-px border-b-2 px-4 py-2 text-sm transition-colors",
+              "-mb-px shrink-0 border-b-2 px-4 py-2 text-sm transition-colors",
               tab === t.key
                 ? "border-brand-dark font-medium text-brand-ink"
                 : "border-transparent text-brand-muted hover:text-brand-ink"
             )}
           >
-            {t.label} <span className="text-xs text-brand-muted">({t.count})</span>
+            {t.label}
+            {t.count !== undefined && <span className="text-xs text-brand-muted"> ({t.count})</span>}
           </Link>
         ))}
       </div>
+
+      {tab === "notas" &&
+        (subjectId ? (
+          <NotasPanel
+            subjectId={subjectId}
+            subjectOptions={subjectOptions}
+            periodId={sp.period}
+            vista={sp.vista === "definitivas" ? "definitivas" : "planilla"}
+            basePath={`/dashboard/cursos/${id}`}
+            fixed={{ tab: "notas" }}
+            keys={{ subject: "subject", period: "period", vista: "vista" }}
+            editable={editable}
+          />
+        ) : (
+          <p className="text-sm text-brand-muted">Primero agrega materias al curso, en la pestaña Materias.</p>
+        ))}
+
+      {tab === "asistencia" &&
+        (subjectId ? (
+          <AsistenciaPanel
+            subjectId={subjectId}
+            subjectOptions={subjectOptions}
+            date={attendanceDate}
+            fixed={{ tab: "asistencia" }}
+            editable={editable}
+          />
+        ) : (
+          <p className="text-sm text-brand-muted">Primero agrega materias al curso, en la pestaña Materias.</p>
+        ))}
+
+      {tab === "boletines" && (
+        <BoletinesPanel
+          courseId={id}
+          periodParam={sp.period}
+          fixed={{ tab: "boletines" }}
+          editable={editable}
+          teacherName={profile.full_name}
+        />
+      )}
 
       {tab === "estudiantes" && (
         <div className="flex flex-col gap-4">
@@ -139,7 +190,7 @@ export default async function CursoPage({
                 return (
                   <Card key={e.id} className="transition-shadow hover:shadow-md">
                     <CardContent className="flex items-center gap-3 p-4">
-                      <Link href={`/dashboard/estudiantes/${s.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                      <Link href={`/dashboard/estudiantes/${s.id}?enr=${e.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                         <StudentAvatar
                           name={`${s.first_name} ${s.last_name}`}
                           url={s.photo_url ? photos.get(s.photo_url) ?? null : null}
@@ -155,7 +206,7 @@ export default async function CursoPage({
                         </div>
                       </Link>
                       <Link
-                        href={`/dashboard/estudiantes/${s.id}#asistencia`}
+                        href={`/dashboard/estudiantes/${s.id}?enr=${e.id}#asistencia`}
                         title="Ver las fechas de sus faltas"
                         className={cn(
                           "shrink-0 rounded-full px-2 py-1 text-xs font-medium hover:underline",
@@ -188,13 +239,13 @@ export default async function CursoPage({
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Link
-                    href={`/dashboard/notas?subject=${s.id}`}
+                    href={`/dashboard/cursos/${id}?tab=notas&subject=${s.id}`}
                     className="inline-flex items-center gap-1.5 rounded-[var(--radius-brand-sm)] border border-brand-border px-3 py-1.5 text-sm hover:bg-black/5"
                   >
                     <ClipboardList className="h-4 w-4" /> Notas
                   </Link>
                   <Link
-                    href={`/dashboard/asistencia?subject=${s.id}`}
+                    href={`/dashboard/cursos/${id}?tab=asistencia&subject=${s.id}`}
                     className="inline-flex items-center gap-1.5 rounded-[var(--radius-brand-sm)] border border-brand-border px-3 py-1.5 text-sm hover:bg-black/5"
                   >
                     <CalendarCheck className="h-4 w-4" /> Asistencia
@@ -249,7 +300,7 @@ export default async function CursoPage({
                       size={48}
                     />
                     <div className="min-w-0 flex-1">
-                      <Link href={`/dashboard/estudiantes/${s.id}`} className="font-medium text-brand-ink hover:underline">
+                      <Link href={`/dashboard/estudiantes/${s.id}?enr=${e.id}`} className="font-medium text-brand-ink hover:underline">
                         {s.last_name} {s.first_name}
                       </Link>
                       <p className="text-xs text-brand-muted">
@@ -259,7 +310,7 @@ export default async function CursoPage({
                       {e.withdrawn_note && <p className="text-xs text-brand-muted">{e.withdrawn_note}</p>}
                     </div>
                     <Link
-                      href={`/dashboard/estudiantes/${s.id}#asistencia`}
+                      href={`/dashboard/estudiantes/${s.id}?enr=${e.id}#asistencia`}
                       className="rounded-full bg-black/5 px-2 py-1 text-xs hover:underline"
                     >
                       {faltas.get(e.id) ?? 0} faltas

@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TeacherForm } from "@/components/superadmin/teacher-form";
 import { ResetPasswordForm } from "@/components/superadmin/reset-password-form";
-import { updateTeacher } from "@/lib/actions/superadmin";
+import { ConfirmButton } from "@/components/confirm-button";
+import { deleteTeacher, updateTeacher } from "@/lib/actions/superadmin";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/supabase/types";
 
@@ -44,6 +45,24 @@ export default async function TeacherPage({ params }: { params: Promise<{ id: st
         </CardHeader>
         <CardContent>
           <ResetPasswordForm teacherId={id} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Eliminar docente</CardTitle>
+          <p className="text-sm text-brand-muted">
+            Borra la cuenta y todo lo suyo: instituciones, cursos, estudiantes, notas y fotos. No se puede deshacer. Si solo
+            quiere que deje de entrar, desactívelo arriba.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <ConfirmButton
+            action={deleteTeacher.bind(null, id)}
+            message={`¿Eliminar a ${teacher.full_name} y TODOS sus datos? Esta acción no se puede deshacer.`}
+            variant="outline"
+          >
+            Eliminar a {teacher.full_name}
+          </ConfirmButton>
         </CardContent>
       </Card>
     </div>

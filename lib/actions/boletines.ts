@@ -27,6 +27,6 @@ export async function recordBulletinSend(input: {
     channel: input.channel,
   });
   if (error) return { error: "No se pudo registrar el envío" };
-  revalidatePath("/dashboard/boletines");
+  revalidatePath("/dashboard", "layout");
   return {};
 }

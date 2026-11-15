@@ -82,3 +82,13 @@ Pendiente: probar con Supabase real.
 - Ficha del estudiante: tarjeta Asistencia con totales por matrícula y lista de fechas (filtro por tipo y materia), para activos, cerrados y retirados.
 - Retiro: motivo, fecha y nota; genera y guarda un PDF (notas, faltas con fechas, observaciones) en `media/<docente>/retiros/`; botón "Informe de retiro" siempre disponible. Nada se borra; si vuelve a matricularse se limpian los datos del retiro.
 - Alertas parametrizables en Mi cuenta (tabla `alert_settings`, siempre activas): faltas sin excusa cada N, nota de periodo ≤ X, nota final ≤ Y (vacío = nota para aprobar del año). Periodo: alerta si está cerrado o 100% calificado; final: cuando todos los periodos tienen nota.
+
+## Nuevo flujo de navegación (SQL `sql/008_usuario_sin_mayusculas.sql`, opcional pero recomendado)
+- **Inicio** = solo instituciones, con filtro de año (por defecto el año vigente). Cada institución abre sus cursos del año elegido (`/dashboard/instituciones/[id]?year=`); ahí también se crean años, cursos y se configuran los periodos.
+- **Curso** (`/dashboard/cursos/[id]`): pestañas Estudiantes (con foto y faltas), Materias, Notas (planilla actual), Asistencia, Boletines y Retirados.
+- **Estudiante** (`?enr=` desde el curso): notas de todas las materias y periodos, boletín por periodo (PDF/WhatsApp), asistencia con fechas, observador, acudientes.
+- Menú izquierdo: Inicio, Notas, Asistencia, Estudiantes, Boletines, Notificaciones, Mi cuenta (atajos sin entrar a cada curso). Barra lateral fija.
+- Materias ↔ estudiantes: las materias son de un curso; el estudiante se matricula en el curso y aparece en todas sus materias (sin vínculo manual).
+- **Reportes PDF y Excel** (`/api/reportes/<tipo>?formato=pdf|xlsx`): notas-materia, notas-curso (consolidado), notas-estudiante, asistencia-curso, asistencia-estudiante, resultados-anio. Se arman en el servidor; botones en cada vista.
+- Usuario: se guarda como se escribe; el login no distingue mayúsculas; no pueden repetirse sin importarlas. El super admin puede eliminar docentes (con todo lo suyo) y restablecer su contraseña.
+- Datos de prueba: `scripts/seed-demo.mjs` (cuenta `alejaespinosa`, fotos de la carpeta `niños/`; `--limpiar` borra solo sus datos).

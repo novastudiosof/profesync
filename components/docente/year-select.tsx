@@ -8,7 +8,7 @@ import { selectClasses } from "@/components/action-form";
 export function YearSelect({
   options,
   value,
-  basePath = "/dashboard/cursos",
+  basePath = "/dashboard",
 }: {
   options: { id: string; label: string }[];
   value: string;

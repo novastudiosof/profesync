@@ -8,8 +8,7 @@ export const createTeacherSchema = z.object({
   username: z
     .string()
     .trim()
-    .toLowerCase()
-    .regex(/^[a-z0-9._-]{3,30}$/, "Usuario: 3 a 30 caracteres (letras, números, . _ -)"),
+    .regex(/^[A-Za-z0-9._-]{3,30}$/, "Usuario: 3 a 30 caracteres (letras, números, . _ -)"),
   password: z.string().min(8, "La contraseña debe tener mínimo 8 caracteres"),
   phone: z.string().trim().optional(),
   planExpiresAt: z.string().trim().optional(),
